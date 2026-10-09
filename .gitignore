@@ -1,0 +1,40 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# User outputs & personal transcripts (Protected)
+outputs/*
+!outputs/.gitkeep
+
+# Audio cache & temporary slices
+cache/*
+!cache/.gitkeep
+
+# Local AI model weights (huge files, auto-downloaded)
+models/*
+!models/.gitkeep
+
+# Local runtime configuration
+config.json
+
+# Binaries (ffmpeg/ffprobe - use static-ffmpeg or system PATH)
+bin/*.exe
+bin/*.dll
+
+# IDE & OS temporary files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.log

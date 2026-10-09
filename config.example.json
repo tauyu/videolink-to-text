@@ -1,0 +1,9 @@
+{
+  "output_dir": "./outputs",
+  "cache_dir": "./cache",
+  "model_dir": "./models",
+  "model_size": "large-v3-turbo",
+  "device": "cuda",
+  "compute_type": "float16",
+  "export_timeline_transcript": false
+}

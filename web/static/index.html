@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VideoLink-to-Text | 视频章节分段与字幕听写工具</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    pre { white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+  <!-- Navigation Bar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-100">
+          <i class="fa-solid fa-file-lines text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-slate-900 leading-none">VideoLink-to-Text</h1>
+          <p class="text-xs text-slate-500 mt-1">视频章节分段转录 · 原片字幕秒级提取 / GPU 硬件加速 & CPU 自适应听写</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <button onclick="openOutputFolder()" id="openFolderBtn" class="inline-flex items-center px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition shadow-sm">
+          <i class="fa-regular fa-folder-open text-amber-500 mr-2 text-sm"></i> 打开输出文件夹
+        </button>
+        <button onclick="openSettingsModal()" class="inline-flex items-center px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition shadow-sm">
+          <i class="fa-solid fa-sliders text-indigo-500 mr-2 text-sm"></i> 设置与路径
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Input Section -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-bold text-slate-900 flex items-center">
+          <i class="fa-solid fa-plus-circle text-indigo-600 mr-2"></i> 添加批量处理任务
+        </h2>
+        <span class="text-xs text-slate-400">支持一行一条：B站视频链接、YouTube链接，或本地视频文件路径</span>
+      </div>
+
+      <div class="space-y-4">
+        <textarea id="sourceInput" rows="4" 
+          placeholder="在此粘贴一个或多个视频链接/文件绝对路径（每行一条）&#10;示例：&#10;https://www.bilibili.com/video/BV1xx411c7mD&#10;https://www.youtube.com/watch?v=dQw4w9WgXcQ&#10;D:\Videos\会议录像.mp4" 
+          class="w-full rounded-xl border border-slate-200 p-3.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono transition bg-slate-50/50"></textarea>
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-medium text-slate-500">处理逻辑：</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+              <i class="fa-solid fa-bolt mr-1 text-[10px]"></i> 优先秒级提取CC字幕
+            </span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+              <i class="fa-solid fa-microchip mr-1 text-[10px]"></i> 无字幕自动CUDA听写
+            </span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
+              <i class="fa-solid fa-list-ol mr-1 text-[10px]"></i> 章节自动对齐分段
+            </span>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <button onclick="document.getElementById('sourceInput').value = ''" class="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition">
+              清空输入
+            </button>
+            <button onclick="submitTasks()" id="submitBtn" class="inline-flex items-center px-5 py-2 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-200 transition">
+              <i class="fa-solid fa-paper-plane mr-2"></i> 加入任务队列
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task Queue Section -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center space-x-3">
+          <h2 class="text-sm font-bold text-slate-900 flex items-center">
+            <i class="fa-solid fa-layer-group text-indigo-600 mr-2"></i> 任务队列看板
+          </h2>
+          <span id="taskCountBadge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">0</span>
+          <span id="wsStatus" class="inline-flex items-center text-xs text-emerald-600 font-medium">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span> 实时同步中
+          </span>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <button onclick="clearCompletedTasks()" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-md transition">
+            <i class="fa-regular fa-trash-can mr-1"></i> 清理已完成
+          </button>
+          <button onclick="fetchTasks()" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-md transition">
+            <i class="fa-solid fa-rotate-right mr-1"></i> 刷新
+          </button>
+        </div>
+      </div>
+
+      <!-- Task List Container -->
+      <div id="taskListContainer" class="divide-y divide-slate-100 overflow-x-auto min-h-[220px]">
+        <!-- Dynamic task cards will be rendered here -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Markdown Preview Modal -->
+  <div id="previewModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-200">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <h3 id="previewTitle" class="text-sm font-bold text-slate-900 truncate max-w-lg">转录结果预览</h3>
+        <div class="flex items-center space-x-2">
+          <button onclick="copyPreviewContent()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition">
+            <i class="fa-regular fa-copy mr-1"></i> 复制全文
+          </button>
+          <button onclick="closePreviewModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+      </div>
+      <div class="p-6 overflow-y-auto flex-1 font-mono text-sm leading-relaxed text-slate-700 bg-white">
+        <pre id="previewContent" class="whitespace-pre-wrap"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full flex flex-col overflow-hidden border border-slate-200">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <h3 class="text-sm font-bold text-slate-900">程序配置与路径设置（严格便携，零C盘占用）</h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      
+      <div class="p-6 space-y-4 text-xs text-slate-700">
+        <div>
+          <label class="block font-bold text-slate-800 mb-1">结果导出目录 (output_dir)</label>
+          <input type="text" id="cfgOutputDir" class="w-full rounded-lg border border-slate-200 p-2 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <p class="text-slate-400 mt-1" id="resolvedOutputDir"></p>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-800 mb-1">临时缓存目录 (cache_dir - 任务结束后自动清理)</label>
+          <input type="text" id="cfgCacheDir" class="w-full rounded-lg border border-slate-200 p-2 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <p class="text-slate-400 mt-1" id="resolvedCacheDir"></p>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-800 mb-1">AI 模型缓存目录 (model_dir)</label>
+          <input type="text" id="cfgModelDir" class="w-full rounded-lg border border-slate-200 p-2 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <p class="text-slate-400 mt-1" id="resolvedModelDir"></p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-bold text-slate-800 mb-1">ASR 模型大小</label>
+            <select id="cfgModelSize" class="w-full rounded-lg border border-slate-200 p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
+              <option value="large-v3-turbo">large-v3-turbo (推荐，极佳速度与中英混写)</option>
+              <option value="medium">medium (平衡)</option>
+              <option value="small">small (更快)</option>
+              <option value="base">base (轻量快速)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-800 mb-1">计算硬件 (Device)</label>
+            <select id="cfgDevice" class="w-full rounded-lg border border-slate-200 p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
+              <option value="cuda">CUDA (NVIDIA 显卡硬件加速)</option>
+              <option value="cpu">CPU (无独显备用)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100">
+          <label class="flex items-start space-x-3 cursor-pointer select-none">
+            <input type="checkbox" id="cfgTimelineTranscript" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+            <div>
+              <span class="block text-xs font-bold text-slate-800">输出带时间轴的逐句稿</span>
+              <span class="block text-[11px] text-slate-500 mt-0.5">默认不开。开启后，将在输出目录额外生成一份 <code>[00:01:23] 逐句内容</code> 的时间轴对照稿，方便对照音视频节点。</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="bg-amber-50 rounded-lg p-3 text-amber-800 text-[11px] leading-relaxed border border-amber-200">
+          <i class="fa-solid fa-circle-info mr-1"></i> 
+          <strong>提示</strong>：支持使用 <code>./outputs</code>、<code>./cache</code> 等相对路径，无论将程序文件夹复制到哪台电脑或哪个盘符，均会自动相对于当前程序根目录运行，保证不占用系统 C 盘。
+        </div>
+      </div>
+
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-200/60 transition">取消</button>
+        <button onclick="saveSettings()" class="px-4 py-2 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition">保存设置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
